@@ -95,33 +95,30 @@ in `~/.claude/projects`, `~/.codex/sessions` and `~/.axio/agent/sessions`.
 ### Statistics
 
 ```
-$ agent-replay stats ~/.claude/projects/-Users-me/3f9a1c2e-0000-4000-8000-000000000001.jsonl
-session         3f9a1c2e-0000-4000-8000-000000000001
+$ agent-replay stats tests/fixtures/claude-session.jsonl
+session         claude-fixture-0001
 format          claude-code
-working dir     /Users/me
-model           claude-opus-5-5
-started         2026-11-05 22:29:33.233 +00:00:00
-duration        5h 14m 45s
-events          293
+working dir     /work/demo-app
+model           claude-sonnet-4-5
+started         2026-03-29 08:02:27.0 +00:00:00
+duration        9.1s
+events          10
 
 tool calls
-  AskUserQuestion  1 of 111
-  Bash             80 of 111
-  Edit             16 of 111
-  Read             11 of 111
-  Skill            1 of 111
-  Write            2 of 111
+  Bash  1 of 3
+  Edit  1 of 3
+  Read  1 of 3
 
 files touched
-  /Users/me/.config/app/config.toml
+  /work/demo-app/src/routes.rs
 
 tokens
-  input         364
-  output        176932
-  cache read    29127101
-  cache create  614704
-  reasoning     75820
-  total         29919101
+  input         750
+  output        193
+  cache read    13700
+  cache create  1500
+  reasoning     12
+  total         16143
 ```
 
 `--json` prints the same figures as JSON, for scripting.

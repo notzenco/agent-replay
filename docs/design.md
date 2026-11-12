@@ -338,7 +338,7 @@ an operator can still see what happened locally.
 
 | Category | Example | Replacement |
 | --- | --- | --- |
-| Home directory | `/Users/me/Developer/x` | `~/Developer/x` |
+| Home directory | `/Users/me/Developer/x`, `/home/runner/x`, `C:\Users\someone\x` | `~/Developer/x` |
 | Email address | `user@example.com` | `[email]` |
 | AWS access key id | `AKIAIOSFODNN7EXAMPLE` | `[redacted:aws-key-id]` |
 | AWS secret key | value of `aws_secret_access_key` | `[redacted:aws-secret-key]` |
@@ -353,12 +353,20 @@ an operator can still see what happened locally.
 | Private key block | `-----BEGIN RSA PRIVATE KEY-----…` | `[redacted:private-key]` |
 | JSON Web Token | `eyJhbGci….eyJ….…` | `[redacted:jwt]` |
 | Bearer header | `Authorization: Bearer <token>` | `[redacted:bearer-token]` |
+| URL password | `postgres://app:…@host/db` | `[redacted:url-password]` |
 | Password assignment | `password = "…"` | `[redacted:password]` |
 | Generic secret assignment | `api_key = "…"` | `[redacted:secret]` |
 | High-entropy string | 32+ chars, mixed case and digits, ≥ 3.5 bits/char | `[redacted:high-entropy]` |
 
 The home directory is replaced by the literal `~/`, which keeps paths
-readable and still identifies the shape of what was happening.
+readable and still identifies the shape of what was happening. Any user's
+home counts, in Unix, WSL (`/mnt/c/Users/…`) and Windows (`C:\Users\…`)
+spellings, because a session recorded on another machine — or a CI log it
+quotes — names users this machine has never heard of.
+
+Only the password of a URL is replaced, and only when it starts with a letter
+or a digit: `postgres://app:${DB_PASSWORD}@host/db` is a template, not a
+secret, and it is left as it is.
 
 The high-entropy rule is deliberately conservative. A candidate must be at
 least 32 characters, contain an uppercase letter, a lowercase letter and a

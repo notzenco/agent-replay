@@ -291,6 +291,15 @@ fn rules() -> Vec<Rule> {
             1,
         ),
         (
+            "[redacted:url-password]",
+            3,
+            // The password in `scheme://user:password@host`. A placeholder
+            // such as `${DB_PASSWORD}` is not a secret, so the password has
+            // to start with a letter or a digit.
+            r#"[A-Za-z][A-Za-z0-9+.-]*://[^\s/@:"'<]+:([A-Za-z0-9][^\s/@:"'<]{3,})@"#,
+            1,
+        ),
+        (
             "[redacted:password]",
             4,
             r#"(?i)\b(?:pass(?:word|wd)?|secret|api[_-]?key|access[_-]?token|auth[_-]?token)\b["']?\s*[=:]\s*["']?([^\s"',;]{6,})"#,
@@ -301,6 +310,22 @@ fn rules() -> Vec<Rule> {
             5,
             r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
             0,
+        ),
+        (
+            "~",
+            6,
+            // Any user's home directory, not just this machine's: a session
+            // recorded elsewhere (or a CI log it quotes) names other users.
+            // The boundary character keeps a web route such as
+            // `example.com/home/index` from looking like a home directory.
+            r#"(?:^|[\s"'`(=:,<\[/])((?:/Users/|/home/|/mnt/[A-Za-z]/Users/)[A-Za-z0-9._-]+)"#,
+            1,
+        ),
+        (
+            "~",
+            6,
+            r#"(?:^|[\s"'`(=:,<\[/])([A-Za-z]:(?:\\|/)Users(?:\\|/)[A-Za-z0-9._-]+)"#,
+            1,
         ),
     ];
 
@@ -514,5 +539,46 @@ mod tests {
     fn a_bearer_header_loses_only_the_token() {
         let out = redact("Authorization: Bearer abcdef0123456789abcdef").text;
         assert!(out.contains("Bearer [redacted:bearer-token]"));
+    }
+
+    #[test]
+    fn removes_another_users_home_directory() {
+        let out = redact("built in /Users/runner/work/app and /home/deploy/app").text;
+        assert_eq!(out, "built in ~/work/app and ~/app");
+    }
+
+    #[test]
+    fn removes_a_windows_home_directory() {
+        let out = redact(r"opened C:\Users\someone\dev\app and D:/Users/someone/app").text;
+        assert_eq!(out, r"opened ~\dev\app and ~/app");
+        let wsl = redact("synced from /mnt/c/Users/someone/dev/app").text;
+        assert_eq!(wsl, "synced from ~/dev/app");
+    }
+
+    #[test]
+    fn keeps_a_home_shaped_web_route() {
+        let text = "see https://example.com/home/index for the docs";
+        assert_eq!(redact(text).text, text);
+    }
+
+    #[test]
+    fn removes_the_password_from_a_url() {
+        let out = redact("postgres://app:knm-locally-42@127.0.0.1:5432/app").text;
+        assert_eq!(
+            out,
+            "postgres://app:[redacted:url-password]@127.0.0.1:5432/app"
+        );
+    }
+
+    #[test]
+    fn keeps_a_placeholder_password_in_a_url() {
+        let text = "postgres://app:${DB_PASSWORD}@127.0.0.1/app";
+        assert_eq!(redact(text).text, text);
+    }
+
+    #[test]
+    fn keeps_an_ordinary_url() {
+        let text = "clone https://github.com/notzenco/agent-replay at 12:30";
+        assert_eq!(redact(text).text, text);
     }
 }

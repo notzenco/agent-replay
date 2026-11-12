@@ -130,12 +130,12 @@ what really happened; only the exported file is cleaned up.
 
 | What | Example | Becomes |
 | --- | --- | --- |
-| Home directory | `/Users/me/Developer/x` | `~/Developer/x` |
+| Home directory | `/Users/me/Developer/x`, `C:\Users\someone\x` | `~/Developer/x` |
 | Email address | `someone@example.com` | `[email]` |
 | Cloud and API keys | `AKIA…`, `ghp_…`, `glpat-…`, `xoxb-…`, `sk_live_…`, `sk-ant-…`, `AIza…`, `npm_…` | `[redacted:<kind>]` |
 | Private key blocks | `-----BEGIN RSA PRIVATE KEY-----…` | `[redacted:private-key]` |
 | JSON Web Tokens | `eyJhbGci….eyJ….…` | `[redacted:jwt]` |
-| Passwords and secrets | `password = "…"` | `[redacted:password]` |
+| Passwords and secrets | `password = "…"`, `postgres://app:…@host/db` | `[redacted:password]` |
 | High-entropy strings | 32+ characters of near-random text | `[redacted:high-entropy]` |
 
 The high-entropy rule is deliberately strict: a candidate has to be at least

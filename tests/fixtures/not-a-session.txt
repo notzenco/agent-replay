@@ -1,0 +1,1 @@
+This file is not a session log. agent-replay should refuse to guess its format.

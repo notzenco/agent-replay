@@ -47,6 +47,37 @@ fn makes_no_external_requests() {
 }
 
 #[test]
+fn every_css_variable_reference_is_well_formed() {
+    let html = html_of("claude-session.jsonl", ExportOptions::default());
+    // A reference is written `var(--name)`. Anything else, such as the typo
+    // `varresult`, silently drops the whole declaration.
+    let bytes = html.as_bytes();
+    let mut malformed = Vec::new();
+    for (index, _) in html.match_indices("var") {
+        let before_is_word = index > 0 && {
+            let byte = bytes[index - 1];
+            byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
+        };
+        if before_is_word {
+            continue;
+        }
+        let rest = &html[index + 3..];
+        if rest.starts_with('(') {
+            if !rest.starts_with("(--") {
+                malformed.push(index);
+            }
+        } else if rest.starts_with(|c: char| c.is_ascii_alphabetic()) {
+            malformed.push(index);
+        }
+    }
+    assert!(
+        malformed.is_empty(),
+        "the stylesheet has {} malformed variable reference(s)",
+        malformed.len()
+    );
+}
+
+#[test]
 fn shows_the_session_details() {
     let html = html_of("claude-session.jsonl", ExportOptions::default());
     assert!(html.contains("claude-fixture-0001"));

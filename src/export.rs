@@ -519,7 +519,7 @@ h2 { font-size: 1rem; margin: 1.75rem 0 .6rem; color: var(--muted); text-transfo
 .event.user .badge { color: var(--user); }
 .event.assistant .badge { color: var(--assistant); }
 .event.tool .badge { color: var(--tool); }
-.event.result .badge { color: varresult; }
+.event.result .badge { color: var(--result); }
 .event.result.error .badge { color: var(--error); }
 .tool-name { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; color: var(--fg); }
 .prose { white-space: pre-wrap; word-break: break-word; }

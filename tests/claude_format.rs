@@ -102,6 +102,33 @@ fn counts_usage_once_per_assistant_message() {
 }
 
 #[test]
+fn counts_usage_once_for_a_message_split_over_lines() {
+    // Claude Code writes one line per content block of a streamed message,
+    // repeating the usage on each line with the output count still growing.
+    // Only the last reading is the message's usage.
+    let session = format::read(&fixture("claude-split-message.jsonl")).unwrap();
+    let usage = session.total_usage();
+    assert_eq!(usage.input_tokens, 1200);
+    assert_eq!(usage.output_tokens, 110);
+    assert_eq!(usage.cache_read_tokens, 500);
+    assert_eq!(usage.reasoning_tokens, 7);
+    let kinds: Vec<&str> = session.events.iter().map(|e| e.kind.name()).collect();
+    assert_eq!(
+        kinds,
+        vec![
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "result",
+            "result",
+            "assistant",
+            "user"
+        ]
+    );
+}
+
+#[test]
 fn counts_tool_calls_and_files_touched() {
     let session = format::read(&fixture("claude-session.jsonl")).unwrap();
     let counts = session.tool_counts();

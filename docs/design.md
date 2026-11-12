@@ -95,6 +95,11 @@ A `tool_result` block is `{ "type": "tool_result", "tool_use_id": "toolu_01…",
 "content": "…" | [ … ], "is_error": false }`. It is matched back to its
 `tool_use` by `tool_use_id`.
 
+A streamed assistant message is written as one record per content block, all
+sharing `message.id` and each repeating the `usage` block with the output
+count still growing. The reader keeps only the last reading per message id,
+so a message's tokens are counted once, at their final value.
+
 ### 1.2 Codex
 
 `~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<uuid>.jsonl`. Each line is
@@ -413,6 +418,8 @@ session content.
 - `tests/fixtures/claude-session.jsonl` — a Claude Code session with a user
   turn, an assistant turn, a `Read`, an `Edit`, a `Bash`, a tool error and
   usage.
+- `tests/fixtures/claude-split-message.jsonl` — one assistant message split
+  over three records with repeated usage, plus a user image block.
 - `tests/fixtures/codex-session.jsonl` — a Codex rollout with `session_meta`,
   a `function_call`, a `function_call_output`, an `exec_command_end` and
   `token_count` events.

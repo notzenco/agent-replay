@@ -4,6 +4,7 @@
 //! `~/.claude/projects/<project>/<session>.jsonl`. Every line is a JSON
 //! object discriminated by a top-level `type`.
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -45,6 +46,8 @@ pub fn read_session(path: &Path) -> Result<Session> {
         events: Vec::new(),
     };
     let mut malformed = 0usize;
+    // The event carrying each assistant message's usage, by message id.
+    let mut usage_at: HashMap<String, usize> = HashMap::new();
 
     for (line_no, line) in reader.lines().enumerate() {
         let line =
@@ -60,7 +63,7 @@ pub fn read_session(path: &Path) -> Result<Session> {
                 continue;
             }
         };
-        apply(&mut session, &value);
+        apply(&mut session, &value, &mut usage_at);
     }
 
     if session.events.is_empty() {
@@ -88,7 +91,7 @@ pub fn detect_path(path: &Path) -> bool {
 }
 
 /// Fold one JSONL record into the session.
-fn apply(session: &mut Session, value: &Value) {
+fn apply(session: &mut Session, value: &Value, usage_at: &mut HashMap<String, usize>) {
     if session.id.is_empty()
         && let Some(id) =
             string_field(value, "sessionId").or_else(|| string_field(value, "session_id"))
@@ -107,7 +110,7 @@ fn apply(session: &mut Session, value: &Value) {
         .unwrap_or_default();
     match kind {
         "user" => apply_user(session, value),
-        "assistant" => apply_assistant(session, value),
+        "assistant" => apply_assistant(session, value, usage_at),
         "system" => apply_system(session, value),
         _ => {}
     }
@@ -180,13 +183,14 @@ fn apply_user(session: &mut Session, value: &Value) {
 }
 
 /// An assistant record: text, reasoning and tool calls.
-fn apply_assistant(session: &mut Session, value: &Value) {
+fn apply_assistant(session: &mut Session, value: &Value, usage_at: &mut HashMap<String, usize>) {
     let ts = value
         .get("timestamp")
         .and_then(Value::as_str)
         .and_then(parse_timestamp);
     let message = value.get("message");
     let model = message.and_then(|m| string_field(m, "model"));
+    let message_id = message.and_then(|m| string_field(m, "id"));
     let usage = message.and_then(|m| m.get("usage")).map(parse_usage);
 
     if session.model.is_none() {
@@ -200,9 +204,17 @@ fn apply_assistant(session: &mut Session, value: &Value) {
         return;
     };
 
-    // The usage block belongs to the message, not to each block inside it, so
-    // it is attached to the first event the message produces.
+    // A streamed message is written as one record per content block, each
+    // repeating the usage with the output count still growing. When this
+    // message already has an event carrying its usage, the new reading
+    // replaces that one instead of being counted again.
     let mut usage = usage;
+    if let (Some(latest), Some(id)) = (usage, message_id.as_deref())
+        && let Some(index) = usage_at.get(id)
+    {
+        session.events[*index].usage = Some(latest);
+        usage = None;
+    }
     for block in blocks {
         let block_type = block
             .get("type")
@@ -237,7 +249,11 @@ fn apply_assistant(session: &mut Session, value: &Value) {
         if matches!(event.kind, EventKind::ToolCall { .. }) {
             event.tool_call_id = string_field(block, "id");
         }
+        let carries_usage = event.usage.is_some();
         push_event(session, event);
+        if carries_usage && let Some(id) = &message_id {
+            usage_at.insert(id.clone(), session.events.len() - 1);
+        }
     }
 }
 

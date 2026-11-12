@@ -182,6 +182,19 @@ fn keeps_a_custom_tool_calls_input_text() {
 }
 
 #[test]
+fn counts_the_file_a_patch_touches() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    assert_eq!(
+        session.files_touched(),
+        vec!["/work/demo-app/src/routes.rs".to_string()]
+    );
+    assert_eq!(
+        session.events[1].target().as_deref(),
+        Some("/work/demo-app/src/routes.rs")
+    );
+}
+
+#[test]
 fn reads_a_custom_tool_output_written_as_blocks() {
     let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
     let EventKind::ToolResult { output, is_error } = &session.events[2].kind else {

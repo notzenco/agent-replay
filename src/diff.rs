@@ -110,12 +110,28 @@ fn edit_diff(input: &Value) -> Option<Diff> {
     Some(diff)
 }
 
+/// The first file a Codex-style patch touches, named by its
+/// `*** Update File:` / `*** Add File:` / `*** Delete File:` header.
+pub fn patch_file_path(text: &str) -> Option<String> {
+    for line in text.lines() {
+        for marker in ["*** Update File: ", "*** Add File: ", "*** Delete File: "] {
+            if let Some(path) = line.strip_prefix(marker) {
+                let path = path.trim();
+                if !path.is_empty() {
+                    return Some(path.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 /// A patch supplied in unified diff form.
 fn patch_diff(input: &Value) -> Option<Diff> {
     let text = ["patch", "input", "diff", "content"]
         .iter()
         .find_map(|key| input.get(*key).and_then(Value::as_str))?;
-    let path = file_path(input);
+    let path = file_path(input).or_else(|| patch_file_path(text));
     let mut diff = Diff {
         path,
         ..Diff::default()
@@ -124,7 +140,7 @@ fn patch_diff(input: &Value) -> Option<Diff> {
         if line.starts_with("+++ ") || line.starts_with("--- ") {
             continue;
         }
-        if line.starts_with("@@") {
+        if line.starts_with("@@") || line.starts_with("*** ") {
             continue;
         }
         let (kind, rest) = match line.strip_prefix('+') {
@@ -271,6 +287,21 @@ mod tests {
         assert_eq!(diff.removed, 1);
         assert_eq!(diff.lines[0].kind, DiffLineKind::Removed);
         assert_eq!(diff.lines[1].kind, DiffLineKind::Added);
+    }
+
+    #[test]
+    fn a_codex_patch_names_the_file_it_touches() {
+        let patch = "*** Begin Patch\n*** Update File: /work/demo-app/src/routes.rs\n@@\n-old\n+new\n*** End Patch\n";
+        let diff = diff_for("apply_patch", &json!({"input": patch})).unwrap();
+        assert_eq!(diff.path.as_deref(), Some("/work/demo-app/src/routes.rs"));
+        assert_eq!(diff.added, 1);
+        assert_eq!(diff.removed, 1);
+        assert!(diff.lines.iter().all(|l| !l.text.starts_with("***")));
+        assert_eq!(
+            patch_file_path(patch).as_deref(),
+            Some("/work/demo-app/src/routes.rs")
+        );
+        assert_eq!(patch_file_path("no patch here"), None);
     }
 
     #[test]

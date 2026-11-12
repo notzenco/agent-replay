@@ -284,6 +284,13 @@ pub fn tool_target(input: &Value) -> Option<String> {
             return Some(value.to_string());
         }
     }
+    for key in ["patch", "input", "diff", "content"] {
+        if let Some(text) = input.get(key).and_then(Value::as_str)
+            && let Some(path) = crate::diff::patch_file_path(text)
+        {
+            return Some(path);
+        }
+    }
     None
 }
 

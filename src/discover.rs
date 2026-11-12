@@ -83,6 +83,18 @@ fn source_of(path: &Path) -> Option<SessionSource> {
     None
 }
 
+/// Whether a file inside an agent's session tree is a session log at all.
+///
+/// Claude Code also writes workflow journals (`journal.jsonl`) into the same
+/// tree. They are not session transcripts, so they are left out of the list
+/// instead of failing when opened.
+fn is_session_file(source: SessionSource, path: &Path) -> bool {
+    match source {
+        SessionSource::ClaudeCode => path.file_stem().and_then(|s| s.to_str()) != Some("journal"),
+        SessionSource::Codex | SessionSource::Axio => true,
+    }
+}
+
 /// Walk a directory, collecting the session logs inside it.
 fn collect(dir: &Path, out: &mut Vec<Discovered>, depth: usize) {
     if depth > 6 {
@@ -103,6 +115,9 @@ fn collect(dir: &Path, out: &mut Vec<Discovered>, depth: usize) {
         let Some(file_source) = source_of(&path) else {
             continue;
         };
+        if !is_session_file(file_source, &path) {
+            continue;
+        }
         let metadata = entry.metadata().ok();
         let id = path
             .file_stem()
@@ -167,4 +182,34 @@ pub fn resolve(reference: &str) -> Result<PathBuf> {
         home.join(".claude").join("projects").display(),
         home.display()
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_workflow_journal_is_not_a_session_file() {
+        let journal =
+            Path::new("/home/user/.claude/projects/p/s/subagents/workflows/wf_1/journal.jsonl");
+        assert!(!is_session_file(SessionSource::ClaudeCode, journal));
+    }
+
+    #[test]
+    fn claude_session_and_subagent_logs_are_session_files() {
+        let session =
+            Path::new("/home/user/.claude/projects/p/9a07af0a-cb40-448d-9e43-78b4be13062e.jsonl");
+        let subagent =
+            Path::new("/home/user/.claude/projects/p/s/subagents/agent-a52716d450c7811eb.jsonl");
+        assert!(is_session_file(SessionSource::ClaudeCode, session));
+        assert!(is_session_file(SessionSource::ClaudeCode, subagent));
+        assert!(is_session_file(
+            SessionSource::Codex,
+            Path::new("/home/user/.codex/sessions/2026/01/01/rollout-x.jsonl")
+        ));
+        assert!(is_session_file(
+            SessionSource::Axio,
+            Path::new("/home/user/.axio/agent/sessions/p/1-2.jsonl")
+        ));
+    }
 }

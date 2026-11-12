@@ -26,7 +26,7 @@ reconstructs what a finished session did.
   calls, results and file diffs, with search and a filter by tool.
 - **Exports a self-contained HTML file** with no external requests, so it
   works offline and from a `file://` URL.
-- **Redacts by default.** Secrets, your home directory and email addresses
+- **Redacts by default.** Secrets, home directories and email addresses
   are replaced before anything is written out.
 - **Finds agent-tripwire honeytokens** and highlights them, so an export can
   prove that a planted credential was leaked.
@@ -166,7 +166,7 @@ itself.
 | Format | Where the logs live | Notes |
 | --- | --- | --- |
 | Claude Code | `~/.claude/projects/<project>/<session>.jsonl` | full tool calls, usage and per-turn timings |
-| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | function calls, exit codes, durations, running token totals |
+| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | function and custom tool calls (`exec`, `apply_patch`), exit codes, durations, running token totals |
 | Axio | `~/.axio/agent/sessions/<project>/<id>.jsonl` | messages and tool calls; no timings or token usage |
 
 The format is worked out from the contents of the file, so a log that has been

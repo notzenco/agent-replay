@@ -26,8 +26,9 @@ pub trait SessionReader {
     /// Parse a whole session file.
     fn read(path: &Path) -> Result<Session>;
 
-    /// Whether this reader recognises the file. Content-based, so it can be
-    /// used on files that are not in the agent's usual directory.
+    /// Whether this reader recognises the file from its path. This is the
+    /// fallback for files whose contents are inconclusive; the contents
+    /// decide whenever they can (see [`detect`]).
     fn detect(path: &Path) -> bool;
 }
 

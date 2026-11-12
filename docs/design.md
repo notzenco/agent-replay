@@ -275,8 +275,9 @@ A ratatui terminal UI with two panes and a status bar.
   short kind tag, a short label, and the tool name for tool calls. Long
   lines are truncated with an ellipsis at the pane edge.
 - **Right pane** — the detail for the selected event. For a tool call it shows
-  the tool name, the path or command, the formatted input and, for `Write` and
-  `Edit`, a colourised diff. For a tool result it shows the output.
+  the tool name, the path or command, the formatted input and, for `Write`,
+  `Edit` and patch tools, a colourised diff. For a tool result it shows the
+  output.
 - **Status bar** — the key hints, the search term, the active filters and the
   position in the filtered list.
 
@@ -289,7 +290,7 @@ Keys:
 | `/` | incremental search over the event text, the tool name and the tool's input; `Esc` clears it |
 | `f` | cycle the tool filter (`all` → the tools the session used, in alphabetical order) |
 | `n` / `p` | next / previous tool call |
-| `Enter` | scroll the detail pane down; `BackTab` scrolls back up |
+| `Enter` | scroll the detail pane down; `BackTab` scrolls back up, `PageDown` / `PageUp` scroll further |
 | `Esc` | clear the search and the filter |
 | `q` | quit |
 
@@ -414,9 +415,9 @@ agent-replay export <session> -o <file.html> [--no-redact] [--no-highlight-honey
 against the known roots (`~/.claude/projects`, `~/.codex/sessions`,
 `~/.axio/agent/sessions`).
 
-`stats` prints tool call counts, the files touched, the wall-clock duration
-and the token breakdown, and `--json` emits the same data as JSON for
-scripting.
+`stats` prints tool call counts, the slowest tool call (where the format
+reports durations), the files touched, the wall-clock duration and the token
+breakdown, and `--json` emits the same data as JSON for scripting.
 
 ## 7. Tests
 

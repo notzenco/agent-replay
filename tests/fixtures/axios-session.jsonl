@@ -1,0 +1,7 @@
+{"type":"session","version":1,"created_ms":1774789405000,"cwd":"/work/demo-app"}
+{"type":"message","message":{"role":"user","content":[{"type":"text","text":"add a health endpoint"}]}}
+{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"I'll add it to the router."},{"type":"tool_call","id":"call_01","name":"Read","input":{"file_path":"/work/demo-app/src/routes.rs"}}]}}
+{"type":"message","message":{"role":"user","content":[{"type":"tool_result","id":"call_01","output":"pub fn routes() {}\n","is_error":false}]}}
+{"type":"message","message":{"role":"assistant","content":[{"type":"opaque","provider":"anthropic","value":"{\"type\":\"message\",\"id\":\"msg_1\"}"},{"type":"tool_call","id":"call_02","name":"Bash","input":{"command":"cargo test","description":"Run the test suite"}}]}}
+{"type":"message","message":{"role":"user","content":[{"type":"tool_result","id":"call_02","output":"error: no such command: `carot`","is_error":true}]}}
+{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"The test command failed. Please check the spelling."}]}}

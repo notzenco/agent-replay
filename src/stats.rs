@@ -28,15 +28,22 @@ pub struct Stats {
 
 /// Work out the statistics of a session.
 pub fn compute(session: &Session) -> Stats {
+    // A duration is reported on the tool's result, not on its call, so the
+    // result is matched back to the call that produced it.
+    let name_of = |call_id: Option<&str>| -> Option<String> {
+        let id = call_id?;
+        session
+            .tool_calls()
+            .find(|event| event.tool_call_id.as_deref() == Some(id))
+            .and_then(|event| event.tool_name().map(str::to_string))
+    };
     let slowest_tool = session
-        .tool_calls()
+        .events
+        .iter()
         .filter_map(|event| {
-            event.duration_ms.map(|ms| {
-                (
-                    event.tool_name().unwrap_or_default().to_string(),
-                    Duration::from_millis(ms),
-                )
-            })
+            let ms = event.duration_ms?;
+            let name = name_of(event.tool_call_id.as_deref())?;
+            Some((name, Duration::from_millis(ms)))
         })
         .max_by_key(|(_, ms)| *ms);
 
@@ -169,5 +176,86 @@ fn format_duration(duration: Duration) -> String {
         format!("{}m {}s", seconds / 60, seconds % 60)
     } else {
         format!("{}.{}s", seconds, duration.subsec_millis() / 100)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{Event, EventKind};
+
+    fn event(kind: EventKind, tool_call_id: Option<&str>, duration_ms: Option<u64>) -> Event {
+        Event {
+            index: 0,
+            kind,
+            ts: None,
+            duration_ms,
+            usage: None,
+            model: None,
+            tool_call_id: tool_call_id.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn finds_the_slowest_tool_from_its_result() {
+        let session = Session {
+            id: "s".into(),
+            source: SessionSource::Codex,
+            cwd: None,
+            model: None,
+            started_at: None,
+            events: vec![
+                event(
+                    EventKind::ToolCall {
+                        name: "shell_command".into(),
+                        input: serde_json::json!({}),
+                    },
+                    Some("call_01"),
+                    None,
+                ),
+                event(
+                    EventKind::ToolResult {
+                        output: "ok".into(),
+                        is_error: false,
+                    },
+                    Some("call_01"),
+                    Some(412),
+                ),
+                event(
+                    EventKind::ToolCall {
+                        name: "shell_command".into(),
+                        input: serde_json::json!({}),
+                    },
+                    Some("call_02"),
+                    None,
+                ),
+                event(
+                    EventKind::ToolResult {
+                        output: "error".into(),
+                        is_error: true,
+                    },
+                    Some("call_02"),
+                    Some(2011),
+                ),
+            ],
+        };
+        let stats = compute(&session);
+        assert_eq!(
+            stats.slowest_tool,
+            Some(("shell_command".to_string(), Duration::from_millis(2011)))
+        );
+    }
+
+    #[test]
+    fn has_no_slowest_tool_without_durations() {
+        let session = Session {
+            id: "s".into(),
+            source: SessionSource::ClaudeCode,
+            cwd: None,
+            model: None,
+            started_at: None,
+            events: vec![event(EventKind::User { text: "hi".into() }, None, None)],
+        };
+        assert_eq!(compute(&session).slowest_tool, None);
     }
 }

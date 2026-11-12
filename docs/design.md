@@ -120,13 +120,20 @@ Codex tool names seen in the wild: `exec_command`, `shell_command`,
 Codex splits its turn text across two places: `event_msg/user_message` and
 `event_msg/agent_message` carry the user-visible prose, while
 `response_item/message` carries the same content plus the `developer` and
-system-injected messages. To avoid duplicates, the reader prefers
-`event_msg` messages and falls back to `response_item/message` for roles that
-never appear as an event (`developer`).
+system-injected messages. To avoid duplicates, the reader keeps the
+`event_msg` copy and drops the `response_item` copy when the two match.
+`developer` messages are the system prompt rather than something the session
+did, so they are skipped.
 
-Codex reports usage only as a running total in `token_count` events, so the
-reader keeps the last observed `total_token_usage` and reports the delta
-between consecutive observations.
+Codex reports usage only as a running total in `token_count` events. The
+reader treats the first reading as the usage so far and each later reading as
+the difference from the one before it, so the readings add up to the session
+total. Codex counts cached input inside `input_tokens`, so the cached part is
+split out to match how the other formats report it.
+
+Codex also writes an `exec_command_end` event for each command, carrying its
+exit code and duration. That event is matched to the tool result by `call_id`
+and enriches it, rather than becoming a second event of its own.
 
 ### 1.3 Axio
 

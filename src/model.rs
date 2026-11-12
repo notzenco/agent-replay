@@ -74,6 +74,23 @@ impl Usage {
     pub fn total(&self) -> u64 {
         self.total_input() + self.total_output()
     }
+
+    /// The difference between two readings of a cumulative counter.
+    pub fn difference(self, previous: Usage) -> Usage {
+        Usage {
+            input_tokens: self.input_tokens.saturating_sub(previous.input_tokens),
+            output_tokens: self.output_tokens.saturating_sub(previous.output_tokens),
+            cache_read_tokens: self
+                .cache_read_tokens
+                .saturating_sub(previous.cache_read_tokens),
+            cache_creation_tokens: self
+                .cache_creation_tokens
+                .saturating_sub(previous.cache_creation_tokens),
+            reasoning_tokens: self
+                .reasoning_tokens
+                .saturating_sub(previous.reasoning_tokens),
+        }
+    }
 }
 
 /// What a single entry in the timeline is.

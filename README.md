@@ -62,16 +62,16 @@ in `~/.claude/projects`, `~/.codex/sessions` and `~/.axio/agent/sessions`.
 ```
  agent-replay  claude-fixture-0001  claude-code  10 events  15950 tokens in  193 out
 ┌ Timeline ──────────────────────────────────┐┌ Detail · Edit ─────────────────────────────────────┐
-│  user  add a health endpoint               ││Edit /work/demo-app/src/routes.rs                   │
-│  agent I'll add a health endpoint to the ro││                                                    │
-│  tool  Read /work/demo-app/src/routes.rs   ││file_path  /work/demo-app/src/routes.rs             │
-│  out   ok                                  ││new_string  pub fn routes() -> Router {             │
-│▸ tool  Edit /work/demo-app/src/routes.rs   ││Router::new().route("/health", get(health))}        │
-│  out   ok                                  ││old_string  pub fn routes() {    health()}          │
-│  tool  Bash cargo test                     ││replace_all  false                                  │
-│  out   error                               ││                                                    │
-│  agent The test command failed. Please chec││+2 −2 /work/demo-app/src/routes.rs                  │
-│  note  turn took 9.1s                      ││-pub fn routes() {                                  │
+│  00:00:00 user  add a health endpoint      ││Edit /work/demo-app/src/routes.rs                   │
+│  00:00:02 agent I'll add a health endpoint ││                                                    │
+│  00:00:02 tool  Read /work/demo-app/src/rou││file_path  /work/demo-app/src/routes.rs             │
+│  00:00:02 out   ok                         ││new_string  pub fn routes() -> Router {             │
+│▸ 00:00:04 tool  Edit /work/demo-app/src/rou││Router::new().route("/health", get(health))}        │
+│  00:00:04 out   ok                         ││old_string  pub fn routes() {    health()}          │
+│  00:00:06 tool  Bash cargo test            ││replace_all  false                                  │
+│  00:00:08 out   error                      ││                                                    │
+│  00:00:09 agent The test command failed. Pl││+2 −2 /work/demo-app/src/routes.rs                  │
+│  00:00:09 note  turn took 9.1s             ││-pub fn routes() {                                  │
 │                                            ││-    health()                                       │
 │                                            ││+pub fn routes() -> Router {                        │
 │                                            ││+    Router::new().route("/health", get(health))    │

@@ -323,7 +323,7 @@ impl App {
             .visible
             .iter()
             .filter_map(|index| self.session.events.get(*index))
-            .map(|event| ListItem::new(timeline_line(event)))
+            .map(|event| ListItem::new(timeline_line(event, self.session.started_at)))
             .collect();
 
         let list = List::new(items)
@@ -406,8 +406,25 @@ impl App {
     }
 }
 
+/// The offset of an event from the start of the session, as `hh:mm:ss`.
+///
+/// Events whose format stamps no time keep the column blank, so the
+/// timeline stays aligned.
+fn offset_label(event: &SessionEvent, start: Option<time::OffsetDateTime>) -> String {
+    let Some(elapsed) = start.zip(event.ts).map(|(start, ts)| ts - start) else {
+        return " ".repeat(8);
+    };
+    let seconds = elapsed.whole_seconds().unsigned_abs();
+    format!(
+        "{:02}:{:02}:{:02}",
+        seconds / 3600,
+        (seconds % 3600) / 60,
+        seconds % 60
+    )
+}
+
 /// The one-line summary of an event.
-fn timeline_line(event: &SessionEvent) -> Line<'static> {
+fn timeline_line(event: &SessionEvent, start: Option<time::OffsetDateTime>) -> Line<'static> {
     let (tag, colour) = match event.kind.name() {
         "user" => ("user", Color::Blue),
         "assistant" => ("agent", Color::Magenta),
@@ -417,6 +434,11 @@ fn timeline_line(event: &SessionEvent) -> Line<'static> {
         _ => ("note", Color::Gray),
     };
     let mut spans = vec![
+        Span::styled(
+            offset_label(event, start),
+            Style::default().fg(Color::Indexed(245)),
+        ),
+        Span::raw(" "),
         Span::styled(
             format!("{tag:<5}"),
             Style::default().fg(colour).add_modifier(Modifier::BOLD),
@@ -660,6 +682,26 @@ mod tests {
         app.move_to_tool(false);
         let event = app.selected_event().unwrap();
         assert_eq!(event.tool_name(), Some("Bash"));
+    }
+
+    #[test]
+    fn a_timeline_line_shows_the_offset_from_the_start() {
+        let app = app();
+        let read = &app.session.events[2];
+        let line = timeline_line(read, app.session.started_at);
+        let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(text.contains("00:00:02"), "line was: {text}");
+        assert!(text.contains("Read"));
+    }
+
+    #[test]
+    fn a_timeline_line_without_a_timestamp_keeps_the_column() {
+        let app = app();
+        let first = &app.session.events[0];
+        let line = timeline_line(first, None);
+        let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(text.contains("user"), "line was: {text}");
+        assert!(text.starts_with("        "), "line was: {text}");
     }
 
     #[test]

@@ -272,8 +272,8 @@ A ratatui terminal UI with two panes and a status bar.
 ```
 
 - **Left pane** — the timeline. One line per event: relative offset, a
-  two-letter kind tag, a short label, and the tool name for tool calls.
-  Long lines are truncated with an ellipsis at the pane edge.
+  short kind tag, a short label, and the tool name for tool calls. Long
+  lines are truncated with an ellipsis at the pane edge.
 - **Right pane** — the detail for the selected event. For a tool call it shows
   the tool name, the path or command, the formatted input and, for `Write` and
   `Edit`, a colourised diff. For a tool result it shows the output.

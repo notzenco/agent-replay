@@ -324,7 +324,7 @@ fn rules() -> Vec<Rule> {
         (
             "~",
             6,
-            r#"(?:^|[\s"'`(=:,<\[/])([A-Za-z]:(?:\\|/)Users(?:\\|/)[A-Za-z0-9._-]+)"#,
+            r#"(?:^|[\s"'`(=:,<\[/])([A-Za-z]:(?:\\{1,2}|/)Users(?:\\{1,2}|/)[A-Za-z0-9._-]+)"#,
             1,
         ),
     ];
@@ -553,6 +553,9 @@ mod tests {
         assert_eq!(out, r"opened ~\dev\app and ~/app");
         let wsl = redact("synced from /mnt/c/Users/someone/dev/app").text;
         assert_eq!(wsl, "synced from ~/dev/app");
+        // A path quoted inside JSON arrives with its backslashes doubled.
+        let escaped = redact(r#"path "C:\\Users\\someone\\dev\\app" recorded"#).text;
+        assert_eq!(escaped, r#"path "~\\dev\\app" recorded"#);
     }
 
     #[test]

@@ -158,30 +158,55 @@ pub fn read_session(path: &Path) -> Result<Session> {
                     }
                     "function_call" => {
                         let name = string_field(payload, "name").unwrap_or_else(|| "tool".into());
-                        let arguments = payload
-                            .get("arguments")
-                            .and_then(Value::as_str)
-                            .and_then(|text| serde_json::from_str::<Value>(text).ok())
-                            .unwrap_or(Value::Null);
-                        let mut event = new_event(
-                            EventKind::ToolCall {
-                                name,
-                                input: arguments,
-                            },
+                        let arguments = parse_arguments(payload.get("arguments"));
+                        push_tool_call(&mut session, name, arguments, payload, ts);
+                    }
+                    "custom_tool_call" => {
+                        // Newer Codex writes its built-in tools (`exec`,
+                        // `apply_patch`) this way, with the input as one
+                        // string rather than a JSON document.
+                        let name = string_field(payload, "name").unwrap_or_else(|| "tool".into());
+                        let input = match payload.get("input") {
+                            Some(Value::String(text)) => {
+                                serde_json::json!({ "input": text })
+                            }
+                            Some(other) => other.clone(),
+                            None => Value::Null,
+                        };
+                        push_tool_call(&mut session, name, input, payload, ts);
+                    }
+                    "tool_search_call" => {
+                        let arguments = payload.get("arguments").cloned().unwrap_or(Value::Null);
+                        push_tool_call(&mut session, "tool_search".into(), arguments, payload, ts);
+                    }
+                    "web_search_call" => {
+                        let action = payload.get("action").cloned().unwrap_or(Value::Null);
+                        push_tool_call(&mut session, "web_search".into(), action, payload, ts);
+                    }
+                    "function_call_output" | "custom_tool_call_output" => {
+                        push_tool_result(
+                            &mut session,
+                            render_output(payload.get("output")),
+                            payload,
+                            &command_ends,
                             ts,
                         );
-                        event.tool_call_id = string_field(payload, "call_id");
-                        push_event(&mut session, event);
                     }
-                    "function_call_output" => {
-                        let output = string_field(payload, "output").unwrap_or_default();
-                        let call_id = string_field(payload, "call_id");
-                        let end = call_id.as_deref().and_then(|id| command_ends.get(id));
-                        let is_error = end.and_then(|e| e.exit_code).is_some_and(|code| code != 0);
-                        let mut event = new_event(EventKind::ToolResult { output, is_error }, ts);
-                        event.tool_call_id = call_id;
-                        event.duration_ms = end.and_then(|e| e.duration_ms);
-                        push_event(&mut session, event);
+                    "tool_search_output" => {
+                        let tools = payload.get("tools").cloned().unwrap_or(Value::Null);
+                        let output = serde_json::to_string_pretty(&tools).unwrap_or_default();
+                        push_tool_result(&mut session, output, payload, &command_ends, ts);
+                    }
+                    "image_generation_call" => {
+                        // The record carries the image itself as base64,
+                        // which is megabytes of noise in a timeline; the
+                        // prompt is the part worth replaying.
+                        let prompt = string_field(payload, "revised_prompt");
+                        let text = match prompt {
+                            Some(prompt) => format!("[image generated: {prompt}]"),
+                            None => "[image generated]".to_string(),
+                        };
+                        push(&mut session, EventKind::Notice { text }, ts);
                     }
                     _ => {}
                 }
@@ -362,6 +387,75 @@ fn attach_usage(session: &mut Session, usage: Usage) {
         .find(|e| e.usage.is_none() && !matches!(e.kind, EventKind::User { .. }))
     {
         event.usage = Some(usage);
+    }
+}
+
+/// Append a tool call, linking it to the result that will follow.
+fn push_tool_call(
+    session: &mut Session,
+    name: String,
+    input: Value,
+    payload: &Value,
+    ts: Option<OffsetDateTime>,
+) {
+    let mut event = new_event(EventKind::ToolCall { name, input }, ts);
+    event.tool_call_id = string_field(payload, "call_id");
+    push_event(session, event);
+}
+
+/// Append a tool result, enriched with its command-end record when the
+/// session has one.
+fn push_tool_result(
+    session: &mut Session,
+    output: String,
+    payload: &Value,
+    command_ends: &HashMap<String, CommandEnd>,
+    ts: Option<OffsetDateTime>,
+) {
+    let call_id = string_field(payload, "call_id");
+    let end = call_id.as_deref().and_then(|id| command_ends.get(id));
+    let is_error = end.and_then(|e| e.exit_code).is_some_and(|code| code != 0);
+    let mut event = new_event(EventKind::ToolResult { output, is_error }, ts);
+    event.tool_call_id = call_id;
+    event.duration_ms = end.and_then(|e| e.duration_ms);
+    push_event(session, event);
+}
+
+/// A `function_call`'s arguments: usually a JSON document inside a string,
+/// kept as the raw string when it does not parse.
+fn parse_arguments(arguments: Option<&Value>) -> Value {
+    match arguments {
+        Some(Value::String(text)) => {
+            serde_json::from_str::<Value>(text).unwrap_or_else(|_| Value::String(text.clone()))
+        }
+        Some(other) => other.clone(),
+        None => Value::Null,
+    }
+}
+
+/// Render a tool output, which is a string or a list of content blocks.
+fn render_output(output: Option<&Value>) -> String {
+    match output {
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Array(blocks)) => {
+            let mut parts = Vec::new();
+            for block in blocks {
+                match block
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                {
+                    "input_text" | "output_text" | "text" => {
+                        parts.push(string_field(block, "text").unwrap_or_default());
+                    }
+                    "input_image" | "image" => parts.push("[image]".to_string()),
+                    _ => {}
+                }
+            }
+            parts.join("\n")
+        }
+        Some(Value::Null) | None => String::new(),
+        Some(other) => other.to_string(),
     }
 }
 

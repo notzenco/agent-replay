@@ -108,6 +108,11 @@ A `tool_result` block is `{ "type": "tool_result", "tool_use_id": "toolu_01…",
 | `response_item` | `reasoning` | reasoning; `summary` array of `{type:"summary_text", text}` |
 | `response_item` | `function_call` | tool call: `call_id`, `name`, `arguments` (a JSON **string**) |
 | `response_item` | `function_call_output` | tool result: `call_id`, `output` |
+| `response_item` | `custom_tool_call` | built-in tool call (`exec`, `apply_patch`): `call_id`, `name`, `input` (one **string**) |
+| `response_item` | `custom_tool_call_output` | tool result: `call_id`, `output` |
+| `response_item` | `tool_search_call` / `tool_search_output` | tool call / result: `arguments` (an object) / `tools` |
+| `response_item` | `web_search_call` | tool call: `action` (`type`, `query`, `queries`) |
+| `response_item` | `image_generation_call` | notice naming the `revised_prompt`; the base64 image data is dropped |
 | `event_msg` | `user_message` | user turn (`message`) |
 | `event_msg` | `agent_message` | assistant turn (`message`) |
 | `event_msg` | `token_count` | usage: `info.total_token_usage` and `info.last_token_usage` |
@@ -115,7 +120,12 @@ A `tool_result` block is `{ "type": "tool_result", "tool_use_id": "toolu_01…",
 | `event_msg` | `task_started`, `turn_aborted` | notice |
 
 Codex tool names seen in the wild: `exec_command`, `shell_command`,
-`write_stdin`, `update_plan`, `view_image`, `request_user_input`.
+`write_stdin`, `update_plan`, `view_image`, `request_user_input`, and the
+`custom_tool_call` built-ins `exec` and `apply_patch`.
+
+A tool output is either a string or a list of content blocks
+(`input_text`, `input_image`, …); blocks are rendered as text, with an image
+shown as `[image]` so its data never reaches the timeline.
 
 Codex splits its turn text across two places: `event_msg/user_message` and
 `event_msg/agent_message` carry the user-visible prose, while
@@ -406,6 +416,9 @@ session content.
 - `tests/fixtures/codex-session.jsonl` — a Codex rollout with `session_meta`,
   a `function_call`, a `function_call_output`, an `exec_command_end` and
   `token_count` events.
+- `tests/fixtures/codex-custom-tools.jsonl` — a Codex rollout with
+  `custom_tool_call` records, block-shaped tool outputs, a tool search, a web
+  search and an image generation.
 - `tests/fixtures/axios-session.jsonl` — an Axio session with a header, a
   user turn, a `tool_call` and a `tool_result`.
 - `tests/fixtures/secret-session.jsonl` — a session holding a cloud key and an

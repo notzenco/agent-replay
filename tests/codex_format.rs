@@ -124,3 +124,105 @@ fn counts_tool_calls() {
     let counts = session.tool_counts();
     assert_eq!(counts.get("shell_command"), Some(&2));
 }
+
+#[test]
+fn reads_custom_tool_calls_in_order() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    let kinds: Vec<&str> = session.events.iter().map(|e| e.kind.name()).collect();
+    assert_eq!(
+        kinds,
+        vec![
+            "user",
+            "tool",
+            "result",
+            "tool",
+            "result",
+            "tool",
+            "result",
+            "tool",
+            "result",
+            "tool",
+            "notice",
+            "assistant"
+        ]
+    );
+    let tools: Vec<Option<&str>> = session
+        .events
+        .iter()
+        .map(|e| e.tool_name())
+        .filter(|name| name.is_some())
+        .collect();
+    assert_eq!(
+        tools,
+        vec![
+            Some("apply_patch"),
+            Some("exec"),
+            Some("view_image"),
+            Some("tool_search"),
+            Some("web_search")
+        ]
+    );
+}
+
+#[test]
+fn keeps_a_custom_tool_calls_input_text() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    let EventKind::ToolCall { name, input } = &session.events[1].kind else {
+        panic!("expected a tool call, got {:?}", session.events[1].kind);
+    };
+    assert_eq!(name, "apply_patch");
+    assert!(
+        input["input"]
+            .as_str()
+            .unwrap()
+            .contains("*** Update File: /work/demo-app/src/routes.rs")
+    );
+    assert_eq!(session.events[1].tool_call_id.as_deref(), Some("call_p1"));
+    assert_eq!(session.events[2].tool_call_id.as_deref(), Some("call_p1"));
+}
+
+#[test]
+fn reads_a_custom_tool_output_written_as_blocks() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    let EventKind::ToolResult { output, is_error } = &session.events[2].kind else {
+        panic!("expected a tool result, got {:?}", session.events[2].kind);
+    };
+    assert!(output.contains("Success. Updated the following files:"));
+    assert!(!is_error);
+}
+
+#[test]
+fn reads_a_function_call_output_written_as_blocks() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    let EventKind::ToolResult { output, .. } = &session.events[6].kind else {
+        panic!("expected a tool result, got {:?}", session.events[6].kind);
+    };
+    assert!(output.contains("here is the screenshot"));
+    assert!(output.contains("[image]"));
+    assert!(!output.contains("base64"));
+}
+
+#[test]
+fn reads_a_tool_search_round_trip() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    let EventKind::ToolCall { name, input } = &session.events[7].kind else {
+        panic!("expected a tool call, got {:?}", session.events[7].kind);
+    };
+    assert_eq!(name, "tool_search");
+    assert_eq!(input["query"], "create a branch");
+    let EventKind::ToolResult { output, .. } = &session.events[8].kind else {
+        panic!("expected a tool result, got {:?}", session.events[8].kind);
+    };
+    assert!(output.contains("create_branch"));
+    assert_eq!(session.events[8].tool_call_id.as_deref(), Some("call_s1"));
+}
+
+#[test]
+fn shows_a_generated_image_as_a_notice_without_the_image_data() {
+    let session = format::read(&fixture("codex-custom-tools.jsonl")).unwrap();
+    let EventKind::Notice { text } = &session.events[10].kind else {
+        panic!("expected a notice, got {:?}", session.events[10].kind);
+    };
+    assert!(text.contains("image generated"));
+    assert!(text.contains("a small diagram of the routes"));
+}

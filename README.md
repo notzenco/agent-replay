@@ -100,7 +100,7 @@ session         claude-fixture-0001
 format          claude-code
 working dir     /work/demo-app
 model           claude-sonnet-4-5
-started         2026-03-29 08:02:27.0 +00:00:00
+started         2026-03-29 8:02:27.0 +00:00:00
 duration        9.1s
 events          10
 

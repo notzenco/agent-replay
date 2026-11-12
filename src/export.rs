@@ -59,9 +59,21 @@ pub fn to_html(session: &Session, options: &ExportOptions) -> String {
     out.push_str(STYLE);
     out.push_str("</head>\n<body>\n");
 
-    render_header(&mut out, session);
-    render_summary(&mut out, session);
-    render_timeline(&mut out, session, &redactor);
+    // The sections are rendered in timeline order but assembled so the
+    // honeytoken banner, which is only known once everything has been
+    // scanned, still lands at the top of the file.
+    let mut honeytokens: Vec<String> = Vec::new();
+    let mut header = String::new();
+    render_header(&mut header, session, &redactor, &mut honeytokens);
+    let mut summary = String::new();
+    render_summary(&mut summary, session, &redactor, &mut honeytokens);
+    let mut timeline = String::new();
+    render_timeline(&mut timeline, session, &redactor, &mut honeytokens);
+
+    out.push_str(&header);
+    render_honeytokens(&mut out, &honeytokens);
+    out.push_str(&summary);
+    out.push_str(&timeline);
 
     out.push_str("<footer class=\"footer\">");
     out.push_str(
@@ -72,8 +84,34 @@ pub fn to_html(session: &Session, options: &ExportOptions) -> String {
     out
 }
 
+/// The banner naming the honeytokens the session leaked.
+fn render_honeytokens(out: &mut String, honeytokens: &[String]) {
+    if honeytokens.is_empty() {
+        return;
+    }
+    out.push_str("<aside class=\"honeytokens\">\n");
+    let _ = writeln!(
+        out,
+        "<strong>{} agent-tripwire honeytoken(s) found.</strong>",
+        honeytokens.len()
+    );
+    out.push_str(
+        "<p>These are planted credentials that should never have appeared in a transcript. ",
+    );
+    out.push_str("The values are shown so the leak can be traced.</p>\n<ul>\n");
+    for id in honeytokens {
+        let _ = writeln!(out, "<li><code>{}</code></li>", escape_html(id));
+    }
+    out.push_str("</ul>\n</aside>\n");
+}
+
 /// The session header: what it was, where it ran and when.
-fn render_header(out: &mut String, session: &Session) {
+fn render_header(
+    out: &mut String,
+    session: &Session,
+    redactor: &Redactor,
+    honeytokens: &mut Vec<String>,
+) {
     out.push_str("<header class=\"header\">\n");
     let _ = writeln!(
         out,
@@ -93,17 +131,23 @@ fn render_header(out: &mut String, session: &Session) {
     };
     meta(
         "Working directory",
-        escape_html(
+        redacted_html(
             &session
                 .cwd
                 .as_ref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "not recorded".to_string()),
+            redactor,
+            honeytokens,
         ),
     );
     meta(
         "Model",
-        escape_html(session.model.as_deref().unwrap_or("not recorded")),
+        redacted_html(
+            session.model.as_deref().unwrap_or("not recorded"),
+            redactor,
+            honeytokens,
+        ),
     );
     if let Some(start) = session.started_at {
         meta("Started", escape_html(&format_time(start, HEADER_TIME)));
@@ -116,7 +160,12 @@ fn render_header(out: &mut String, session: &Session) {
 }
 
 /// The summary bar: how much the session did.
-fn render_summary(out: &mut String, session: &Session) {
+fn render_summary(
+    out: &mut String,
+    session: &Session,
+    redactor: &Redactor,
+    honeytokens: &mut Vec<String>,
+) {
     let usage = session.total_usage();
     let counts = session.tool_counts();
     let files = session.files_touched();
@@ -153,18 +202,23 @@ fn render_summary(out: &mut String, session: &Session) {
     if !files.is_empty() {
         out.push_str("<section class=\"files\">\n<h2>Files touched</h2>\n<ul>\n");
         for path in files {
-            let _ = writeln!(out, "<li><code>{}</code></li>", escape_html(&path));
+            out.push_str("<li><code>");
+            write_redacted(out, &path, redactor, honeytokens);
+            out.push_str("</code></li>\n");
         }
         out.push_str("</ul>\n</section>\n");
     }
 }
 
 /// The timeline: one card per event.
-fn render_timeline(out: &mut String, session: &Session, redactor: &Redactor) {
+fn render_timeline(
+    out: &mut String,
+    session: &Session,
+    redactor: &Redactor,
+    honeytokens: &mut Vec<String>,
+) {
     out.push_str("<section class=\"timeline\">\n<h2>Timeline</h2>\n");
     let start = session.started_at;
-
-    let mut honeytokens: Vec<String> = Vec::new();
 
     for event in &session.events {
         let mut classes = event.kind.name().to_string();
@@ -206,7 +260,7 @@ fn render_timeline(out: &mut String, session: &Session, redactor: &Redactor) {
         }
         out.push_str("</header>\n");
 
-        render_body(out, event, redactor, &mut honeytokens);
+        render_body(out, event, redactor, honeytokens);
 
         if let Some(usage) = event.usage {
             let _ = writeln!(
@@ -216,23 +270,6 @@ fn render_timeline(out: &mut String, session: &Session, redactor: &Redactor) {
             );
         }
         out.push_str("</article>\n");
-    }
-
-    if !honeytokens.is_empty() {
-        out.push_str("<aside class=\"honeytokens\">\n");
-        let _ = writeln!(
-            out,
-            "<strong>{} agent-tripwire honeytoken(s) found.</strong>",
-            honeytokens.len()
-        );
-        out.push_str(
-            "<p>These are planted credentials that should never have appeared in a transcript. ",
-        );
-        out.push_str("The values are shown so the leak can be traced.</p>\n<ul>\n");
-        for id in &honeytokens {
-            let _ = writeln!(out, "<li><code>{}</code></li>", escape_html(id));
-        }
-        out.push_str("</ul>\n</aside>\n");
     }
 
     out.push_str("</section>\n");
@@ -315,12 +352,17 @@ fn render_diff(
     let Some(diff) = diff::diff_for(name, input) else {
         return;
     };
+    out.push_str("<div class=\"diff-head\">");
+    write_redacted(
+        out,
+        diff.path.as_deref().unwrap_or("file"),
+        redactor,
+        honeytokens,
+    );
     let _ = writeln!(
         out,
-        "<div class=\"diff-head\">{} <span class=\"added\">+{}</span> <span class=\"removed\">−{}</span></div>",
-        escape_html(diff.path.as_deref().unwrap_or("file")),
-        diff.added,
-        diff.removed
+        " <span class=\"added\">+{}</span> <span class=\"removed\">−{}</span></div>",
+        diff.added, diff.removed
     );
     out.push_str("<table class=\"diff\">\n");
     for line in &diff.lines {
@@ -373,6 +415,13 @@ fn write_value(
             out.push_str("</pre>");
         }
     }
+}
+
+/// Redacted, escaped HTML for one short value, such as a header field.
+fn redacted_html(text: &str, redactor: &Redactor, honeytokens: &mut Vec<String>) -> String {
+    let mut out = String::new();
+    write_redacted(&mut out, text, redactor, honeytokens);
+    out
 }
 
 /// Write text that has been redacted, marking any honeytoken it holds.

@@ -196,6 +196,61 @@ fn highlights_a_honeytoken_and_names_it() {
 }
 
 #[test]
+fn redacts_the_header_file_list_and_diff_paths() {
+    let home = std::env::var("HOME").unwrap();
+    let session = format::read(&fixture("claude-session.jsonl")).unwrap();
+    let mut session = session;
+    session.cwd = Some(PathBuf::from(format!("{home}/demo")));
+    session.events.push(agent_replay::model::Event {
+        index: 0,
+        kind: agent_replay::model::EventKind::ToolCall {
+            name: "Write".into(),
+            input: serde_json::json!({
+                "file_path": format!("{home}/demo/notes.txt"),
+                "content": "hello\n"
+            }),
+        },
+        ts: None,
+        duration_ms: None,
+        usage: None,
+        model: None,
+        tool_call_id: None,
+    });
+    let html = export::to_html(&session, &ExportOptions::default());
+    assert!(
+        !html.contains(&home),
+        "the home directory must not appear anywhere in the export"
+    );
+    assert!(html.contains("~/demo"));
+    assert!(html.contains("~/demo/notes.txt"));
+}
+
+#[test]
+fn names_honeytokens_above_the_timeline() {
+    let session = format::read(&fixture("claude-session.jsonl")).unwrap();
+    let mut session = session;
+    let id = agent_replay::honeytoken::id_with_check_chars("ABCDEF");
+    session.events.push(agent_replay::model::Event {
+        index: 0,
+        kind: agent_replay::model::EventKind::User {
+            text: format!("the value leaked TRIPWIRE{id} here"),
+        },
+        ts: None,
+        duration_ms: None,
+        usage: None,
+        model: None,
+        tool_call_id: None,
+    });
+    let html = export::to_html(&session, &ExportOptions::default());
+    let banner = html.find("class=\"honeytokens\"").unwrap();
+    let timeline = html.find("class=\"timeline\"").unwrap();
+    assert!(
+        banner < timeline,
+        "the honeytoken banner belongs at the top"
+    );
+}
+
+#[test]
 fn is_deterministic() {
     let first = html_of("claude-session.jsonl", ExportOptions::default());
     let second = html_of("claude-session.jsonl", ExportOptions::default());

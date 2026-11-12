@@ -1,5 +1,6 @@
 //! agent-replay: step through coding-agent session logs and export them.
 
+pub mod diff;
 pub mod format;
 pub mod model;
 

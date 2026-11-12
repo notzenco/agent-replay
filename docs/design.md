@@ -404,7 +404,7 @@ Redaction is applied at render time, not at parse time, so the TUI and the
 ## 6. CLI surface
 
 ```
-agent-replay list [--format claude|codex|axios] [--cwd <path>]
+agent-replay list [--format claude|codex|axio] [--cwd <path>]
 agent-replay view <session>
 agent-replay stats <session> [--json]
 agent-replay export <session> -o <file.html> [--no-redact] [--no-highlight-honeytokens]
@@ -434,7 +434,7 @@ session content.
 - `tests/fixtures/codex-custom-tools.jsonl` — a Codex rollout with
   `custom_tool_call` records, block-shaped tool outputs, a tool search, a web
   search and an image generation.
-- `tests/fixtures/axios-session.jsonl` — an Axio session with a header, a
+- `tests/fixtures/axio-session.jsonl` — an Axio session with a header, a
   user turn, a `tool_call` and a `tool_result`.
 - `tests/fixtures/secret-session.jsonl` — a session holding a cloud key and an
   email address, for checking that redaction works.

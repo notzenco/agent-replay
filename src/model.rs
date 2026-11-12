@@ -26,7 +26,7 @@ impl SessionSource {
         match self {
             SessionSource::ClaudeCode => "claude-code",
             SessionSource::Codex => "codex",
-            SessionSource::Axio => "axios",
+            SessionSource::Axio => "axio",
         }
     }
 

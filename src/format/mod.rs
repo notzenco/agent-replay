@@ -74,7 +74,7 @@ pub fn detect(path: &Path) -> Result<SessionSource> {
 
     bail!(
         "could not tell which agent wrote {}: it matches none of the supported formats \
-         (claude code jsonl, codex rollout jsonl, axios session jsonl)",
+         (claude code jsonl, codex rollout jsonl, axio session jsonl)",
         path.display()
     );
 }

@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 
 use crate::model::SessionSource;
 
@@ -167,11 +167,4 @@ pub fn resolve(reference: &str) -> Result<PathBuf> {
         home.join(".claude").join("projects").display(),
         home.display()
     )
-}
-
-/// Read a file's size, for display.
-pub fn file_size(path: &Path) -> Result<u64> {
-    let metadata =
-        fs::metadata(path).with_context(|| format!("reading the size of {}", path.display()))?;
-    Ok(metadata.len())
 }

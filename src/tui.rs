@@ -125,9 +125,9 @@ impl App {
                     text.push(' ');
                     text.push_str(&target);
                 }
-                if let Some(value) = input.as_str() {
+                if let Ok(value) = serde_json::to_string(input) {
                     text.push(' ');
-                    text.push_str(value);
+                    text.push_str(&value);
                 }
                 text
             }
@@ -592,6 +592,15 @@ mod tests {
         app.query = "bash".to_string();
         app.rebuild();
         assert_eq!(app.visible.len(), 1);
+    }
+
+    #[test]
+    fn a_search_looks_inside_the_input_of_a_tool_call() {
+        let mut app = app();
+        app.query = "run the test suite".to_string();
+        app.rebuild();
+        assert_eq!(app.visible.len(), 1);
+        assert_eq!(app.selected_event().unwrap().tool_name(), Some("Bash"));
     }
 
     #[test]

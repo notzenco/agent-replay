@@ -271,10 +271,11 @@ Keys:
 | --- | --- |
 | `j` / `k`, `↓` / `↑` | move the selection |
 | `g` / `G` | first / last event |
-| `/` | incremental search over event text; `Esc` clears |
-| `f` | cycle the tool filter (`all` → `Read` → `Write` → `Edit` → `Bash` → …) |
+| `/` | incremental search over the event text, the tool name and the tool's input; `Esc` clears it |
+| `f` | cycle the tool filter (`all` → the tools the session used, in alphabetical order) |
 | `n` / `p` | next / previous tool call |
-| `Enter` | scroll the detail pane; `Esc` returns to the top |
+| `Enter` | scroll the detail pane down; `BackTab` scrolls back up |
+| `Esc` | clear the search and the filter |
 | `q` | quit |
 
 The filter and the search term combine: an event is shown when it matches the
@@ -407,6 +408,10 @@ session content.
   `token_count` events.
 - `tests/fixtures/axios-session.jsonl` — an Axio session with a header, a
   user turn, a `tool_call` and a `tool_result`.
+- `tests/fixtures/secret-session.jsonl` — a session holding a cloud key and an
+  email address, for checking that redaction works.
+- `tests/fixtures/not-a-session.txt` — a file that is not a session log, for
+  checking that the format is refused rather than guessed.
 
 The test suite covers format detection, the normalisation of each format, diff
 rendering, every redaction rule, honeytoken detection and validation, the

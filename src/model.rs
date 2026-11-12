@@ -30,15 +30,6 @@ impl SessionSource {
         }
     }
 
-    /// Name of the CLI flag that selects this format.
-    pub fn flag(self) -> &'static str {
-        match self {
-            SessionSource::ClaudeCode => "claude",
-            SessionSource::Codex => "codex",
-            SessionSource::Axio => "axios",
-        }
-    }
-
     /// Every source, in the order `agent-replay list` reports them.
     pub fn all() -> [SessionSource; 3] {
         [
@@ -278,14 +269,6 @@ pub fn is_file_edit(tool: &str) -> bool {
             | "applypatch"
             | "notebookedit"
             | "str_replace"
-    )
-}
-
-/// Whether a tool name reads a file.
-pub fn is_file_read(tool: &str) -> bool {
-    matches!(
-        tool.to_ascii_lowercase().as_str(),
-        "read" | "view" | "read_file" | "cat" | "notebookread"
     )
 }
 

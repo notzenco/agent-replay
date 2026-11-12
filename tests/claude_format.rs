@@ -129,6 +129,23 @@ fn counts_usage_once_for_a_message_split_over_lines() {
 }
 
 #[test]
+fn shows_a_user_image_block_as_a_notice() {
+    let session = format::read(&fixture("claude-split-message.jsonl")).unwrap();
+    let last_two: Vec<&EventKind> = session
+        .events
+        .iter()
+        .rev()
+        .take(2)
+        .map(|e| &e.kind)
+        .collect();
+    let EventKind::Notice { text } = last_two[1] else {
+        panic!("expected a notice, got {:?}", last_two[1]);
+    };
+    assert_eq!(text, "[image attachment]");
+    assert!(matches!(last_two[0], EventKind::User { .. }));
+}
+
+#[test]
 fn counts_tool_calls_and_files_touched() {
     let session = format::read(&fixture("claude-session.jsonl")).unwrap();
     let counts = session.tool_counts();

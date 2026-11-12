@@ -165,7 +165,7 @@ fn apply_user(session: &mut Session, value: &Value) {
                             last.tool_call_id = Some(id);
                         }
                     }
-                    "image" if is_meta => {
+                    "image" => {
                         push(
                             session,
                             EventKind::Notice {

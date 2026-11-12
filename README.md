@@ -36,7 +36,7 @@ reconstructs what a finished session did.
 ```sh
 git clone https://github.com/notzenco/agent-replay
 cd agent-replay
-cargo install --path .
+cargo install --locked --path .
 ```
 
 Or run it without installing:

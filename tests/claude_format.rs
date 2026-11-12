@@ -123,6 +123,7 @@ fn counts_usage_once_for_a_message_split_over_lines() {
             "result",
             "result",
             "assistant",
+            "notice",
             "user"
         ]
     );

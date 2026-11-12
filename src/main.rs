@@ -1,3 +1,9 @@
-fn main() {
-    println!("agent-replay {}", agent_replay::VERSION);
+use anyhow::Result;
+use clap::Parser;
+
+use agent_replay::cli::{Cli, run};
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    run(cli)
 }
